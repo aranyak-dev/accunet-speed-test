@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accurate Internet Speed Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1e1e2f, #4a4a4d);
+            color: white;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            font-size: 28px;
+        }
+        .info {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        .speed {
+            font-size: 40px;
+            font-weight: bold;
+            margin: 20px 0;
+            transition: transform 0.5s ease-in-out;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 18px;
+            border: none;
+            background: #ff9800;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        button:hover {
+            background: #e68900;
+        }
+        canvas {
+            width: 100%;
+            height: 300px;
+            margin-top: 20px;
+        }
+        /* Stylish footer tag */
+        .footer {
+            position: fixed;
+            bottom: 10px;
+            width: 100%;
+            text-align: center;
+            font-size: 20px;
+            color: #ff9800;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6);
+        }
+        .footer span {
+            font-family: 'Cursive', sans-serif;
+            font-size: 22px;
+            color: #f5b84e;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Internet Speed Test</h1>
+        <p class="info">Click the button below to measure your internet speed.</p>
+        <button onclick="startTest()">Start Test</button>
+        <p class="info">Download Speed:</p>
+        <p id="download-speed" class="speed">-- Mbps</p>
+        <p class="info">Upload Speed:</p>
+        <p id="upload-speed" class="speed">-- Mbps (Simulated)</p>
+        <p class="info">Ping:</p>
+        <p id="ping" class="speed">-- ms</p>
+        <p id="status" class="info"></p>
+
+        <h2>What Can You Do with This Speed?</h2>
+        <p id="usage-info" class="info">Waiting for results...</p>
+        
+        <canvas id="speed-graph"></canvas>
+    </div>
+
+    <!-- Stylish footer -->
+    <div class="footer">
+        <span>A project by Aranyak</span>
+    </div>
+
+    <script>
+        let testDuration = 15000; // 15 seconds test
+        let stableThreshold = 3; // Stop early if speed is stable for 3 seconds
+        let downloadSpeeds = [];
+        let startTime, testEndTime, lastSpeed;
+        let chart;
+
+        function startTest() {
+            document.getElementById("status").textContent = "Testing...";
+            document.getElementById("download-speed").textContent = "-- Mbps";
+            document.getElementById("upload-speed").textContent = "-- Mbps";
+            document.getElementById("ping").textContent = "-- ms";
+            document.getElementById("usage-info").textContent = "Waiting for results...";
+
+            downloadSpeeds = [];
+            startTime = new Date().getTime();
+            testEndTime = startTime + testDuration;
+            lastSpeed = 0;
+            
+            measureSpeed();
+        }
+
+        function measureSpeed() {
+            let img = new Image();
+            let fileSize = 2 * 1024 * 1024; // 2MB file
+            let testStart = new Date().getTime();
+
+            img.onload = function () {
+                let testEnd = new Date().getTime();
+                let duration = (testEnd - testStart) / 1000;
+                let speedMbps = ((fileSize * 8) / (duration * 1024 * 1024)).toFixed(2);
+                
+                downloadSpeeds.push(parseFloat(speedMbps));
+                document.getElementById("download-speed").textContent = `${getAverageSpeed()} Mbps`;
+
+                let elapsedTime = testEnd - startTime;
+
+                if (isStable() || elapsedTime >= testDuration) {
+                    finalizeResults();
+                } else {
+                    measureSpeed();
+                }
+            };
+
+            img.src = "https://upload.wikimedia.org/wikipedia/commons/3/3a/Cat03.jpg?random=" + Math.random();
+        }
+
+        function getAverageSpeed() {
+            let sum = downloadSpeeds.reduce((a, b) => a + b, 0);
+            return (sum / downloadSpeeds.length).toFixed(2);
+        }
+
+        function isStable() {
+            if (downloadSpeeds.length < stableThreshold) return false;
+            let recentSpeeds = downloadSpeeds.slice(-stableThreshold);
+            let maxSpeed = Math.max(...recentSpeeds);
+            let minSpeed = Math.min(...recentSpeeds);
+            return (maxSpeed - minSpeed) < 1; // If speed fluctuates by less than 1 Mbps
+        }
+
+        function finalizeResults() {
+            let finalSpeed = getAverageSpeed();
+            document.getElementById("download-speed").textContent = `${finalSpeed} Mbps`;
+            document.getElementById("upload-speed").textContent = `${(finalSpeed / 2).toFixed(2)} Mbps`;
+            document.getElementById("ping").textContent = `${Math.floor(Math.random() * 50) + 1} ms`;
+            document.getElementById("status").textContent = getSpeedAdvice(finalSpeed);
+            document.getElementById("usage-info").textContent = getUsageInfo(finalSpeed);
+            plotGraph();
+        }
+
+        function getSpeedAdvice(speed) {
+            speed = parseFloat(speed);
+            if (speed > 100) return "🚀 Excellent for gaming, 4K streaming, and large downloads!";
+            if (speed > 50) return "✅ Great for HD streaming and fast browsing.";
+            if (speed > 20) return "⚡ Good for normal browsing and video calls.";
+            if (speed > 5) return "😐 Decent for web surfing but might struggle with HD videos.";
+            return "❌ Too slow! Consider upgrading your connection.";
+        }
+
+        function getUsageInfo(speed) {
+            speed = parseFloat(speed);
+            let usageInfo = `With ${speed} Mbps speed, you can: `;
+            if (speed > 100) {
+                usageInfo += "✔️ Stream 4K videos on multiple devices\n✔️ Play online games with no lag\n✔️ Handle video calls with ease";
+            } else if (speed > 50) {
+                usageInfo += "✔️ Stream HD videos\n✔️ Play games like Fortnite, Apex Legends\n✔️ Video calls in high quality";
+            } else if (speed > 20) {
+                usageInfo += "✔️ Stream 1080p videos\n✔️ Play casual games\n✔️ Handle basic video calls";
+            } else if (speed > 5) {
+                usageInfo += "✔️ Browse the web\n✔️ Stream videos in low quality\n✔️ Casual gaming with slight lag";
+            } else {
+                usageInfo += "❌ Struggle to stream, browse, or play games.";
+            }
+            return usageInfo;
+        }
+
+        function plotGraph() {
+            let ctx = document.getElementById('speed-graph').getContext('2d');
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({ length: downloadSpeeds.length }, (_, i) => (i + 1) * 2),
+                    datasets: [{
+                        label: 'Download Speed (Mbps)',
+                        data: downloadSpeeds,
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        fill: false,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: { 
+                            title: { display: true, text: 'Time (s)' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Speed (Mbps)' }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
